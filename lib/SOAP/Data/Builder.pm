@@ -78,7 +78,7 @@ use SOAP::Lite ( +trace => 'all', maptype => {} );
 use Data::Dumper;
 use strict;
 
-our $VERSION = "0.4";
+our $VERSION = "0.5";
 
 =head1 METHODS
 
@@ -89,7 +89,11 @@ taking named options as parameters
 
 my $builder = SOAP::Data::Builder->new( autotype=>0 ); # new object with no autotyping
 
-supported options are autotype which switches on/off SOAP::Serializers autotype
+supported options are :
+
+* autotype which switches on/off SOAP::Serializers autotype setting
+
+* readable which switches on/off SOAP::Serialixer readable setting
 
 =cut
 
@@ -121,12 +125,12 @@ NOTE: serialise is spelt properly using the King's English
 
 sub serialise {
   my $self = shift;
-  warn "serialise() called \n\n";
-  warn Dumper ($self->to_soap_data), "\n\n";
+#  warn "serialise() called \n\n";
+#  warn Dumper ($self->to_soap_data), "\n\n";
   my $data =  SOAP::Data->name('SOAP:ENV' =>
 			       \SOAP::Data->value( $self->to_soap_data )
 			      );
-  my $serialized = SOAP::Serializer->autotype($self->autotype)->serialize( $data );
+  my $serialized = SOAP::Serializer->autotype($self->autotype)->readable($self->readable);->serialize( $data );
 }
 
 =head2 autotype()
@@ -139,6 +143,16 @@ sub autotype {
   return shift->{options}{autotype} || 0;
 }
 
+=head2 readable()
+
+returns whether the object currently uses readable when serialising
+
+=cut
+
+sub readable {
+ return shift->{options}{readable} || 0;
+}
+
 =head2 to_soap_data()
 
   returns the contents of the object as a list of SOAP::Data and/or SOAP::Header objects
@@ -149,10 +163,10 @@ sub autotype {
 
 sub to_soap_data {
     my $self = shift;
-    warn "sub : to_soap_data called\n";
+#    warn "sub : to_soap_data called\n";
     my @data = ();
     foreach my $elem ( $self->elems ) {
-	warn "handling elem : ", $elem->name(), "\n";
+#	warn "handling elem : ", $elem->name(), "\n";
 	push(@data,$self->get_as_data($elem,1));
     }
     return @data;
@@ -187,12 +201,12 @@ sub add_elem {
   my ($self,%args) = @_;
   if (ref $args{parent}) {
       $args{parent} = $args{parent}->fullname();
-      warn "adding $args{name} to $args{parent}\n";
+#      warn "adding $args{name} to $args{parent}\n";
   }
   my $elem = SOAP::Data::Builder::Element->new(%args);
   if ( $args{parent} ) {
       $self->get_elem($args{parent})->add_elem($elem);
-      warn "added new sub elem ($args{name}) to elem ($args{parent})\n";
+#      warn "added new sub elem ($args{name}) to elem ($args{parent})\n";
       #    warn "dump : ", Dumper($args{parent}), "\n";
   } else {
       push(@{$self->{elements}},$elem);
@@ -214,25 +228,25 @@ type or structure without warning as the class is developed
 
 sub get_elem {
   my ($self,$name) = (@_,'');
-  warn "get_elem ($name)\n";
+#  warn "get_elem ($name)\n";
   my ($a,$b);
   my @keys = split (/\//,$name);
-  warn "have keys : ", join (', ',@keys), "\n";
+#  warn "have keys : ", join (', ',@keys), "\n";
   foreach my $elem ( $self->elems) {
-    warn "handling elem : $elem->{name} - matching against $keys[0]\n";
+#    warn "handling elem : $elem->{name} - matching against $keys[0]\n";
     if ($elem->name eq $keys[0]) {
       $a = $elem;
       $b = shift(@keys);
-      warn " found match : $elem->{name} / key : $b \n";
+#      warn " found match : $elem->{name} / key : $b \n";
       last;
     }
   }
 
-  warn "still have keys : ", join (', ',@keys), "\n";
+#  warn "still have keys : ", join (', ',@keys), "\n";
 
   my $elem = $a;
   while ($b = shift(@keys) ) {
-    warn "fetching with subkey $b\n";
+#    warn "fetching with subkey $b\n";
     $elem = $self->find_elem($elem,$b,@keys);
   }
 
@@ -244,12 +258,12 @@ sub get_elem {
 # internal method
 
 sub find_elem {
-  warn "find_elem ..\n";
+#  warn "find_elem ..\n";
   my ($self,$parent,$key,@keys) = @_;
   my ($a,$b);
-  warn "have key : $key \n";
-  warn "have keys : ", join (', ',@keys), "\n";
-  warn "parent : ", $parent->name, "\n";
+#  warn "have key : $key \n";
+#  warn "have keys : ", join (', ',@keys), "\n";
+#  warn "parent : ", $parent->name, "\n";
   foreach my $elem ( $parent->get_children()) {
     next unless ref $elem;
 #    warn "handling elem : $elem->{name} - matching against $key\n";
@@ -276,16 +290,16 @@ sub find_elem {
 
 sub get_as_data {
   my ($self,$elem) = @_;
-  warn "-- sub : get_as_data called with $elem->{name}\n";
+#  warn "-- sub : get_as_data called with $elem->{name}\n";
   my @values;
   foreach my $value ( @{$elem->value} ) {
-    warn "-- -- value : $value ";
+#    warn "-- -- value : $value ";
     next unless ($value);
     if (ref $value) {
-      warn " ..is ref\n";
+#      warn " ..is ref\n";
       push(@values,$self->get_as_data($value))
     } else {
-      warn " ..is scalar\n";
+#      warn " ..is scalar\n";
       push(@values,$value);
     }
   }

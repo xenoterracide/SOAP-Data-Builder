@@ -161,7 +161,7 @@ Accepts only one argument : the element to be added.
 =cut
 
 sub add_elem {
-    warn "add_elem called\n";
+#    warn "add_elem called\n";
     my ($self,$elem) = @_;
     push(@{$self->{VALUE}},$elem);
     return $elem;
@@ -218,15 +218,15 @@ sub remove_elem {
 
 sub get_as_data {
   my $self = shift;
-  warn "-- sub : get_as_data called in $self->{name}\n";
+#  warn "-- sub : get_as_data called in $self->{name}\n";
   my @values;
   foreach my $value ( @{$self->{VALUE}} ) {
-    warn "-- -- value : $value ";
+#    warn "-- -- value : $value ";
     if (ref $value) {
-      warn " ..is ref\n";
+#      warn " ..is ref\n";
       push(@values,$value->get_as_data())
     } else {
-      warn " ..is scalar\n";
+#      warn " ..is scalar\n";
       push(@values,$value);
     }
   }
