@@ -161,6 +161,7 @@ Accepts only one argument : the element to be added.
 =cut
 
 sub add_elem {
+    warn "add_elem called\n";
     my ($self,$elem) = @_;
     push(@{$self->{VALUE}},$elem);
     return $elem;

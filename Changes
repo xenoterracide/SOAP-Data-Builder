@@ -4,3 +4,11 @@ Revision history for Perl extension SOAP::Data::Builder.
 	- original version; created by h2xs 1.23 with options
 		-X SOAP::Data::Builder
 
+0.02  Additional undocumented internal functionality added
+
+0.3   Mon Nov 24 15:00:00 2003
+        - refactored to be more OO, less functional
+
+0.4   Tues Nov 25 12:40:30 2003
+        - stopped spewing debug warnings
+        - fixed bugs in OO functionality

@@ -78,7 +78,7 @@ use SOAP::Lite ( +trace => 'all', maptype => {} );
 use Data::Dumper;
 use strict;
 
-our $VERSION = "0.3";
+our $VERSION = "0.4";
 
 =head1 METHODS
 
@@ -187,6 +187,7 @@ sub add_elem {
   my ($self,%args) = @_;
   if (ref $args{parent}) {
       $args{parent} = $args{parent}->fullname();
+      warn "adding $args{name} to $args{parent}\n";
   }
   my $elem = SOAP::Data::Builder::Element->new(%args);
   if ( $args{parent} ) {
@@ -279,6 +280,7 @@ sub get_as_data {
   my @values;
   foreach my $value ( @{$elem->value} ) {
     warn "-- -- value : $value ";
+    next unless ($value);
     if (ref $value) {
       warn " ..is ref\n";
       push(@values,$self->get_as_data($value))
