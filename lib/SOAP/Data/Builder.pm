@@ -26,59 +26,63 @@ use SOAP::Data::Builder::Element;
 
 =head1 SYNOPSIS
 
-use SOAP::Lite ( +trace => 'all', maptype => {} );
+  use SOAP::Lite ( +trace => 'all', maptype => {} );
 
-use SOAP::Data::Builder;
+  use SOAP::Data::Builder;
 
-# create new Builder object
-my $soap_data_builder = SOAP::Data::Builder->new();
+  # create new Builder object
+  my $soap_data_builder = SOAP::Data::Builder->new();
 
-#<eb:MessageHeader eb:version="2.0" SOAP:mustUnderstand="1">
-$soap_data_builder->add_elem(name => 'eb:MessageHeader', header=>1, attributes => {"eb:version"=>"2.0", "SOAP::mustUnderstand"=>"1"});
+  #<eb:MessageHeader eb:version="2.0" SOAP:mustUnderstand="1">
+  $soap_data_builder->add_elem(name => 'eb:MessageHeader',
+                             header=>1,
+                               attributes => {"eb:version"=>"2.0", "SOAP::mustUnderstand"=>"1"});
 
-#   <eb:From>
-#        <eb:PartyId>uri:example.com</eb:PartyId>
-#        <eb:Role>http://rosettanet.org/roles/Buyer</eb:Role>
-#   </eb:From>
-$soap_data_builder->add_elem(name=>'eb:From', parent=>$soap_data_builder->get_elem('eb:MessageHeader'));
-$soap_data_builder->add_elem(name=>'eb:PartyId', parent=>$soap_data_builder->get_elem('eb:MessageHeader/eb:From'), 
-                             value=>'uri:example.com');
-$soap_data_builder->add_elem(name=>'eb:Role',
-                             parent=>$soap_data_builder->get_elem('eb:MessageHeader/eb:From'), 
-                             value=>'http://path.to/roles/foo');
+  #   <eb:From>
+  #        <eb:PartyId>uri:example.com</eb:PartyId>
+  #        <eb:Role>http://rosettanet.org/roles/Buyer</eb:Role>
+  #   </eb:From>
+  $soap_data_builder->add_elem(name=>'eb:From',
+                               parent=>$soap_data_builder->get_elem('eb:MessageHeader'));
 
-#   <eb:DuplicateElimination/>
-$soap_data_builder->add_elem(name=>'eb:DuplicateElimination', parent=>$soap_data_builder->get_elem('eb:MessageHeader'));
+  $soap_data_builder->add_elem(name=>'eb:PartyId',
+                               parent=>$soap_data_builder->get_elem('eb:MessageHeader/eb:From'),
+                               value=>'uri:example.com');
+  $soap_data_builder->add_elem(name=>'eb:Role',
+                               parent=>$soap_data_builder->get_elem('eb:MessageHeader/eb:From'),
+                               value=>'http://path.to/roles/foo');
+
+  #   <eb:DuplicateElimination/>
+  $soap_data_builder->add_elem(name=>'eb:DuplicateElimination', parent=>$soap_data_builder->get_elem('eb:MessageHeader'));
 
 
-# fetch Data
-my $data =  SOAP::Data->name('SOAP:ENV' =>
-			     \SOAP::Data->value( $soap_data_builder->to_soap_data )
-			      );
+  # fetch Data
+  my $data =  SOAP::Data->name('SOAP:ENV' =>
+                             \SOAP::Data->value( $soap_data_builder->to_soap_data )
+                              );
 
-# serialise Data using SOAP::Serializer
-my $serialized_xml = SOAP::Serializer->autotype(0)->serialize( $data );
+  # serialise Data using SOAP::Serializer
+  my $serialized_xml = SOAP::Serializer->autotype(0)->serialize( $data );
 
-# serialise Data using wrapper
-my $wrapper_serialised_xml = $soap_data_builder->serialise();
+  # serialise Data using wrapper
+  my $wrapper_serialised_xml = $soap_data_builder->serialise();
 
-# make SOAP request with data
+  # make SOAP request with data
 
-my $foo  = SOAP::Lite
-    -> uri('http://www.liverez.com/SoapDemo')
-    -> proxy('http://www.liverez.com/soap.pl')
-    -> getTest( $soap_data_builder->to_soap_data )
-    -> result;
-
+  my $foo  = SOAP::Lite
+      -> uri('http://www.liverez.com/SoapDemo')
+      -> proxy('http://www.liverez.com/soap.pl')
+      -> getTest( $soap_data_builder->to_soap_data )
+      -> result;
 
 =cut
 
-use SOAP::Lite ( +trace => 'all', maptype => {} );
+use SOAP::Lite ( maptype => {} );
 
 use Data::Dumper;
 use strict;
 
-our $VERSION = "0.6";
+our $VERSION = "0.7";
 
 =head1 METHODS
 
@@ -313,11 +317,13 @@ sub get_as_data {
   if ($elem->{header}) {
     $data[0] = SOAP::Header->name($elem->{name} => $data[0])->attr($elem->attributes());
   } else {
-    if ($elem->{isMethod}) {
-      @data = ( SOAP::Data->name($elem->{name} )->attr($elem->attributes()) => SOAP::Data->value( @values ) );
-    } else {
-      $data[0] = SOAP::Data->name($elem->{name} => $data[0])->attr($elem->attributes());
-    }
+      if ($elem->{isMethod}) {
+	  @data = ( SOAP::Data->name($elem->{name} )->attr($elem->attributes()) => SOAP::Data->value( @values ) );
+      } elsif ($elem->{type}) {
+	  $data[0] = SOAP::Data->name($elem->{name} => $data[0])->attr($elem->attributes())->type($elem->{type});
+      } else {
+	  $data[0] = SOAP::Data->name($elem->{name} => $data[0])->attr($elem->attributes());
+      }
   }
   return @data;
 }

@@ -15,3 +15,9 @@ Revision history for Perl extension SOAP::Data::Builder.
 0.5   Tues Nov 25 14:10:30 2003
         - stopped spewing debug warnings
         - added readable option
+
+0.7   Mon Mar 8 17:45:21 2004
+        - cleaned makefile - doesn't need 5.8.1 anymore
+	- removed trace
+        - added Todd's patch to add support for per-element type
+	- applied Todd's patch to fix perldoc
