@@ -21,3 +21,7 @@ Revision history for Perl extension SOAP::Data::Builder.
 	- removed trace
         - added Todd's patch to add support for per-element type
 	- applied Todd's patch to fix perldoc
+0.8   Wed Oct 20th 2004
+        - fixed support for > 2 deep data structures
+        - improved API for adding and getting elements
+	- misc refactoring and small fixes

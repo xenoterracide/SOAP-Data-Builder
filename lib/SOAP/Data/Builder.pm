@@ -3,6 +3,7 @@ package SOAP::Data::Builder;
 use SOAP::Data::Builder::Element;
 
 # Copyright (c) 2003 Surrey Technologies, Ltd ( http://www.surreytech.co.uk )
+# Copyright (c) 2004 Aaron Trevena
 
 # This Module provides a quick and easy way to build complex SOAP data
 # and header structures for use with SOAP::Lite.
@@ -42,15 +43,14 @@ use SOAP::Data::Builder::Element;
   #        <eb:PartyId>uri:example.com</eb:PartyId>
   #        <eb:Role>http://rosettanet.org/roles/Buyer</eb:Role>
   #   </eb:From>
-  $soap_data_builder->add_elem(name=>'eb:From',
+  my $from = $soap_data_builder->add_elem(name=>'eb:From',
                                parent=>$soap_data_builder->get_elem('eb:MessageHeader'));
 
   $soap_data_builder->add_elem(name=>'eb:PartyId',
-                               parent=>$soap_data_builder->get_elem('eb:MessageHeader/eb:From'),
+                               parent=>$from,
                                value=>'uri:example.com');
-  $soap_data_builder->add_elem(name=>'eb:Role',
-                               parent=>$soap_data_builder->get_elem('eb:MessageHeader/eb:From'),
-                               value=>'http://path.to/roles/foo');
+
+  $from->add_elem(name=>'eb:Role', value=>'http://path.to/roles/foo');
 
   #   <eb:DuplicateElimination/>
   $soap_data_builder->add_elem(name=>'eb:DuplicateElimination', parent=>$soap_data_builder->get_elem('eb:MessageHeader'));
@@ -82,7 +82,7 @@ use SOAP::Lite ( maptype => {} );
 use Data::Dumper;
 use strict;
 
-our $VERSION = "0.7";
+our $VERSION = "0.8";
 
 =head1 METHODS
 
@@ -129,8 +129,6 @@ NOTE: serialise is spelt properly using the King's English
 
 sub serialise {
   my $self = shift;
-#  warn "serialise() called \n\n";
-#  warn Dumper ($self->to_soap_data), "\n\n";
   my $data =  SOAP::Data->name('SOAP:ENV' =>
 			       \SOAP::Data->value( $self->to_soap_data )
 			      );
@@ -167,16 +165,12 @@ sub readable {
 
 sub to_soap_data {
     my $self = shift;
-#    warn "sub : to_soap_data called\n";
     my @data = ();
     foreach my $elem ( $self->elems ) {
-#	warn "handling elem : ", $elem->name(), "\n";
 	push(@data,$self->get_as_data($elem,1));
     }
     return @data;
 }
-
-# internal method
 
 sub elems {
   my $self = shift;
@@ -184,34 +178,40 @@ sub elems {
   return @elems;
 }
 
-=head1 add_elem(name=>'ns:Name')
+=head1 add_elem
 
 This method adds an element to the structure, either to the root list
 or a specified element.
 
 optional parameters are : parent, value, attributes, header, isMethod
 
-parent should be an element fetched using get_elem
+parent should be an element 'add_elem(parent=>$parent_element, .. );'
 
-value should be a string, to add child nodes use add_elem(parent=>get_elem('name/of/parent'), .. )
+or the full name of an element 'add_elem(parent=>'name/of/parent', .. );'
+
+value should be a string,
 
 attributes should be a hashref : { 'ns:foo'=> bar, .. }
 
 header should be 1 or 0 specifying whether the element should be built using SOAP::Data or SOAP::Header
 
+returns the added element
+
+my $bar_elem = $builder->add_elem(name=>'bar', value=>$foo->{bar}, parent=>$foo);
+
+would produce SOAP::Data representing an XML fragment like '<foo><bar>..</bar></foo>'
+
 =cut
 
 sub add_elem {
   my ($self,%args) = @_;
-  if (ref $args{parent}) {
-      $args{parent} = $args{parent}->fullname();
-#      warn "adding $args{name} to $args{parent}\n";
-  }
   my $elem = SOAP::Data::Builder::Element->new(%args);
   if ( $args{parent} ) {
-      $self->get_elem($args{parent})->add_elem($elem);
-#      warn "added new sub elem ($args{name}) to elem ($args{parent})\n";
-      #    warn "dump : ", Dumper($args{parent}), "\n";
+      my $parent = $args{parent};
+      unless (ref $parent eq 'SOAP::Data::Builder::Element') {
+	  $parent = $self->get_elem($args{parent});
+      }
+      $parent->add_elem($elem);
   } else {
       push(@{$self->{elements}},$elem);
   }
@@ -231,62 +231,46 @@ type or structure without warning as the class is developed
 =cut
 
 sub get_elem {
-  my ($self,$name) = (@_,'');
-#  warn "get_elem ($name)\n";
-  my ($a,$b);
-  my @keys = split (/\//,$name);
-#  warn "have keys : ", join (', ',@keys), "\n";
-  foreach my $elem ( $self->elems) {
-#    warn "handling elem : $elem->{name} - matching against $keys[0]\n";
-    if ($elem->name eq $keys[0]) {
-      $a = $elem;
-      $b = shift(@keys);
-#      warn " found match : $elem->{name} / key : $b \n";
-      last;
+    my ($self,$name) = (@_,'');
+    my ($a,$b);
+    my @keys = split (/\//,$name);
+    foreach my $elem ( $self->elems) {
+	if ($elem->name eq $keys[0]) {
+	    $a = $elem;
+	    $b = shift(@keys);
+	    last;
+	}
     }
-  }
 
-#  warn "still have keys : ", join (', ',@keys), "\n";
+    my $elem = $a;
+    $b = shift(@keys);
+    if ($b) {
+	$elem = $self->find_elem($elem,$b,@keys);
+    }
 
-  my $elem = $a;
-  while ($b = shift(@keys) ) {
-#    warn "fetching with subkey $b\n";
-    $elem = $self->find_elem($elem,$b,@keys);
-  }
-
-#  warn "returning element :\n", Dumper($elem), "\n";
-
-  return $elem;
+    return $elem;
 }
 
 # internal method
 
 sub find_elem {
-#  warn "find_elem ..\n";
-  my ($self,$parent,$key,@keys) = @_;
-  my ($a,$b);
-#  warn "have key : $key \n";
-#  warn "have keys : ", join (', ',@keys), "\n";
-#  warn "parent : ", $parent->name, "\n";
-  foreach my $elem ( $parent->get_children()) {
-    next unless ref $elem;
-#    warn "handling elem : $elem->{name} - matching against $key\n";
-    if ($elem->{name} eq $key) {
-      $a = $elem;
-      $b = $key;
-#      warn " found match : $elem->{name} / key : $b \n";
-      last;
+    my ($self,$parent,$key,@keys) = @_;
+    my ($a,$b);
+    foreach my $elem ( $parent->get_children()) {
+	next unless ref $elem;
+	if ($elem->{name} eq $key) {
+	    $a = $elem;
+	    $b = $key;
+	    last;
+	}
     }
-  }
 
-#  warn "still have keys : ", join (', ',@keys), "\n";
-
-  my $elem = $a;
-  while ($b = shift(@keys) ) {
-#    warn "fetching sub key $b\n";
-    $elem = $self->find_elem($elem,$b,@keys);
-  }
-  return $elem;
+    my $elem = $a;
+    undef($b);
+    while ($b = shift(@keys) ) {
+	$elem = $self->find_elem($elem,$b,@keys);
+    }
+    return $elem;
 }
 
 
@@ -294,16 +278,12 @@ sub find_elem {
 
 sub get_as_data {
   my ($self,$elem) = @_;
-#  warn "-- sub : get_as_data called with $elem->{name}\n";
   my @values;
   foreach my $value ( @{$elem->value} ) {
-#    warn "-- -- value : $value ";
     next unless ($value);
     if (ref $value) {
-#      warn " ..is ref\n";
       push(@values,$self->get_as_data($value))
     } else {
-#      warn " ..is scalar\n";
       push(@values,$value);
     }
   }
@@ -327,6 +307,30 @@ sub get_as_data {
   }
   return @data;
 }
+
+=head2 EXPORT
+
+None.
+
+=head1 SEE ALSO
+
+L<perl>
+
+L<SOAP::Lite>
+
+=head1 AUTHOR
+
+Aaron Trevena, E<lt>teejay@droogs.orgE<gt>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (C) 2003 Surrey Technlogies, Ltd
+Copyright (C) 2004 by Aaron Trevena
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself,
+
+=cut
 
 
 #############################################################################

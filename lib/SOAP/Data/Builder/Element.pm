@@ -46,7 +46,10 @@ sub new {
     foreach my $key (keys %args) {
       $self->{$key} = $args{$key} || 0;
     }
-    $self->{fullname} = "$args{parent}/$args{name}" if ($args{parent});
+    if ($args{parent}) {
+	$self->{fullname} = (ref $args{parent}) ? $args{parent}->{fullname}: "$args{parent}/$args{name}";
+    }
+    $self->{fullname} ||= $args{name};
     $self->{VALUE} = [ $args{value} ];
     return $self;
 }
@@ -156,14 +159,35 @@ sub get_attribute {
 
 This method adds an element as a child to another element.
 
-Accepts only one argument : the element to be added.
+Accepts either a SOAP::Data::Builder::Element object or a hash of arguments to create the object
+
+Returns the added element
+
+my $child = $parent->add_elem(name=>'foo',..);
+
+or
+
+$parent->add_elem($child);
 
 =cut
 
 sub add_elem {
-#    warn "add_elem called\n";
-    my ($self,$elem) = @_;
-    push(@{$self->{VALUE}},$elem);
+    my $self = shift;
+    my $elem;
+    if (ref $_[0] eq 'SOAP::Data::Builder::Element') {
+	$elem = $_[0];
+	push(@{$self->{VALUE}},$elem);
+    } else {
+	$elem = {};
+	bless ($elem,ref $self);
+	my %args = @_;
+	foreach my $key (keys %args) {
+	    $elem->{$key} = $args{$key} || 0;
+	}
+	$elem->{fullname} = $self->{fullname}."/$args{name}";
+	$elem->{VALUE} = [ $args{value} ];
+	push(@{$self->{VALUE}},$elem);
+    }
     return $elem;
 }
 
@@ -218,15 +242,11 @@ sub remove_elem {
 
 sub get_as_data {
   my $self = shift;
-#  warn "-- sub : get_as_data called in $self->{name}\n";
   my @values;
   foreach my $value ( @{$self->{VALUE}} ) {
-#    warn "-- -- value : $value ";
     if (ref $value) {
-#      warn " ..is ref\n";
       push(@values,$value->get_as_data())
     } else {
-#      warn " ..is scalar\n";
       push(@values,$value);
     }
   }
