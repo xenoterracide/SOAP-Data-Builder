@@ -4,4 +4,5 @@ MANIFEST
 README
 t/SOAP-Data-Builder.t
 lib/SOAP/Data/Builder.pm
+lib/SOAP/Data/Builder/Element.pm
 META.yml                                 Module meta-data (added by MakeMaker)

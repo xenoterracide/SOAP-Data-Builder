@@ -1,5 +1,7 @@
 package SOAP::Data::Builder;
 
+use SOAP::Data::Builder::Element;
+
 # Copyright (c) 2003 Surrey Technologies, Ltd ( http://www.surreytech.co.uk )
 
 # This Module provides a quick and easy way to build complex SOAP data
@@ -17,7 +19,7 @@ package SOAP::Data::Builder;
 
   This Module provides a quick and easy way to build complex SOAP data
   and header structures for use with SOAP::Lite.
- 
+
   It primarily provides a wrapper around SOAP::Serializer and SOAP::Data
   (or SOAP::Header) enabling you to generate complex XML within your SOAP
   request or response.
@@ -76,7 +78,7 @@ use SOAP::Lite ( +trace => 'all', maptype => {} );
 use Data::Dumper;
 use strict;
 
-our $VERSION = "0.2";
+our $VERSION = "0.3";
 
 =head1 METHODS
 
@@ -119,6 +121,8 @@ NOTE: serialise is spelt properly using the King's English
 
 sub serialise {
   my $self = shift;
+  warn "serialise() called \n\n";
+  warn Dumper ($self->to_soap_data), "\n\n";
   my $data =  SOAP::Data->name('SOAP:ENV' =>
 			       \SOAP::Data->value( $self->to_soap_data )
 			      );
@@ -144,13 +148,14 @@ sub autotype {
 =cut
 
 sub to_soap_data {
-  my $self = shift;
-  warn "sub : to_soap_data called\n";
-  my @data = ();
-  foreach my $elem ( $self->elems ) {
-    push(@data,$self->get_as_data($elem,1));
-  }
-  return @data;
+    my $self = shift;
+    warn "sub : to_soap_data called\n";
+    my @data = ();
+    foreach my $elem ( $self->elems ) {
+	warn "handling elem : ", $elem->name(), "\n";
+	push(@data,$self->get_as_data($elem,1));
+    }
+    return @data;
 }
 
 # internal method
@@ -166,7 +171,7 @@ sub elems {
 This method adds an element to the structure, either to the root list
 or a specified element.
 
-optional parameters are : parent, value, attributes, header, isEntity
+optional parameters are : parent, value, attributes, header, isMethod
 
 parent should be an element fetched using get_elem
 
@@ -180,22 +185,18 @@ header should be 1 or 0 specifying whether the element should be built using SOA
 
 sub add_elem {
   my ($self,%args) = @_;
-  my $elem = {
-	      name => $args{name},
-	      attr => {},
-	      value => [ ],
-	     };
-  $elem->{isMethod} = $args{isMethod} || 0;
-  $elem->{header} = $args{header} || 0;
-  $elem->{attr} = $args{attributes}, if ( $args{attributes}, );
-  $elem->{value} = [ $args{value} ] if ( $args{value} );
-  if ( $args{parent} ) {
-    push(@{$args{parent}{value}},$elem);
-    warn "added new sub elem ($args{name}) to elem ($args{parent}{name})\n";
-#    warn "dump : ", Dumper($args{parent}), "\n";
-  } else {
-    push(@{$self->{elements}},$elem);
+  if (ref $args{parent}) {
+      $args{parent} = $args{parent}->fullname();
   }
+  my $elem = SOAP::Data::Builder::Element->new(%args);
+  if ( $args{parent} ) {
+      $self->get_elem($args{parent})->add_elem($elem);
+      warn "added new sub elem ($args{name}) to elem ($args{parent})\n";
+      #    warn "dump : ", Dumper($args{parent}), "\n";
+  } else {
+      push(@{$self->{elements}},$elem);
+  }
+  return $elem;
 }
 
 =head2 get_elem('ns:elementName')
@@ -217,20 +218,20 @@ sub get_elem {
   my @keys = split (/\//,$name);
   warn "have keys : ", join (', ',@keys), "\n";
   foreach my $elem ( $self->elems) {
-#    warn "handling elem : $elem->{name} - matching against $keys[0]\n";
-    if ($elem->{name} eq $keys[0]) {
+    warn "handling elem : $elem->{name} - matching against $keys[0]\n";
+    if ($elem->name eq $keys[0]) {
       $a = $elem;
       $b = shift(@keys);
-#      warn " found match : $elem->{name} / key : $b \n";
+      warn " found match : $elem->{name} / key : $b \n";
       last;
     }
   }
 
-#  warn "still have keys : ", join (', ',@keys), "\n";
+  warn "still have keys : ", join (', ',@keys), "\n";
 
   my $elem = $a;
   while ($b = shift(@keys) ) {
-#    warn "fetching with subkey $b\n";
+    warn "fetching with subkey $b\n";
     $elem = $self->find_elem($elem,$b,@keys);
   }
 
@@ -246,9 +247,9 @@ sub find_elem {
   my ($self,$parent,$key,@keys) = @_;
   my ($a,$b);
   warn "have key : $key \n";
-#  warn "have keys : ", join (', ',@keys), "\n";
-#  warn "parent : ", Dumper( $parent ), "\n";
-  foreach my $elem ( @{$parent->{value}}) {
+  warn "have keys : ", join (', ',@keys), "\n";
+  warn "parent : ", $parent->name, "\n";
+  foreach my $elem ( $parent->get_children()) {
     next unless ref $elem;
 #    warn "handling elem : $elem->{name} - matching against $key\n";
     if ($elem->{name} eq $key) {
@@ -269,13 +270,14 @@ sub find_elem {
   return $elem;
 }
 
+
 # internal method
 
 sub get_as_data {
   my ($self,$elem) = @_;
-  warn "-- sub : get_as_data called with $elem->{name}\n"; 
+  warn "-- sub : get_as_data called with $elem->{name}\n";
   my @values;
-  foreach my $value ( @{$elem->{value}} ) {
+  foreach my $value ( @{$elem->value} ) {
     warn "-- -- value : $value ";
     if (ref $value) {
       warn " ..is ref\n";
@@ -285,29 +287,22 @@ sub get_as_data {
       push(@values,$value);
     }
   }
-
   my @data = ();
-
-  warn "\n##################\n values : \n ";
-  warn Dumper(@values);
-  warn "\n##################\n ";
 
   if (ref $values[0]) {
     $data[0] = \SOAP::Data->value( @values );
   } else {
     @data = @values;
   }
-
   if ($elem->{header}) {
-    $data[0] = SOAP::Header->name($elem->{name} => $data[0])->attr($elem->{attr});
+    $data[0] = SOAP::Header->name($elem->{name} => $data[0])->attr($elem->attributes());
   } else {
     if ($elem->{isMethod}) {
-      @data = ( SOAP::Data->name($elem->{name} )->attr($elem->{attr}) => SOAP::Data->value( @values ) );
+      @data = ( SOAP::Data->name($elem->{name} )->attr($elem->attributes()) => SOAP::Data->value( @values ) );
     } else {
-      $data[0] = SOAP::Data->name($elem->{name} => $data[0])->attr($elem->{attr});
+      $data[0] = SOAP::Data->name($elem->{name} => $data[0])->attr($elem->attributes());
     }
   }
-
   return @data;
 }
 
