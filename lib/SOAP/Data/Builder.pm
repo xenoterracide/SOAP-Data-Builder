@@ -39,7 +39,8 @@ $soap_data_builder->add_elem(name => 'eb:MessageHeader', header=>1, attributes =
 #        <eb:Role>http://rosettanet.org/roles/Buyer</eb:Role>
 #   </eb:From>
 $soap_data_builder->add_elem(name=>'eb:From', parent=>$soap_data_builder->get_elem('eb:MessageHeader'));
-$soap_data_builder->add_elem(name=>'eb:PartyId', parent=>$soap_data_builder->get_elem('eb:MessageHeader/eb:From'), value=>'uri:example.com');
+$soap_data_builder->add_elem(name=>'eb:PartyId', parent=>$soap_data_builder->get_elem('eb:MessageHeader/eb:From'), 
+                             value=>'uri:example.com');
 $soap_data_builder->add_elem(name=>'eb:Role',
                              parent=>$soap_data_builder->get_elem('eb:MessageHeader/eb:From'), 
                              value=>'http://path.to/roles/foo');
@@ -75,7 +76,7 @@ use SOAP::Lite ( +trace => 'all', maptype => {} );
 use Data::Dumper;
 use strict;
 
-our $VERSION = "0.1";
+our $VERSION = "0.2";
 
 =head1 METHODS
 
@@ -144,9 +145,10 @@ sub autotype {
 
 sub to_soap_data {
   my $self = shift;
+  warn "sub : to_soap_data called\n";
   my @data = ();
   foreach my $elem ( $self->elems ) {
-    push(@data,$self->get_as_data($elem));
+    push(@data,$self->get_as_data($elem,1));
   }
   return @data;
 }
@@ -164,7 +166,7 @@ sub elems {
 This method adds an element to the structure, either to the root list
 or a specified element.
 
-optional parameters are : parent, value, attributes, header
+optional parameters are : parent, value, attributes, header, isEntity
 
 parent should be an element fetched using get_elem
 
@@ -183,6 +185,7 @@ sub add_elem {
 	      attr => {},
 	      value => [ ],
 	     };
+  $elem->{isMethod} = $args{isMethod} || 0;
   $elem->{header} = $args{header} || 0;
   $elem->{attr} = $args{attributes}, if ( $args{attributes}, );
   $elem->{value} = [ $args{value} ] if ( $args{value} );
@@ -208,30 +211,30 @@ type or structure without warning as the class is developed
 =cut
 
 sub get_elem {
-  warn "get_elem\n";
-  my ($self,$name) = @_;
+  my ($self,$name) = (@_,'');
+  warn "get_elem ($name)\n";
   my ($a,$b);
   my @keys = split (/\//,$name);
   warn "have keys : ", join (', ',@keys), "\n";
   foreach my $elem ( $self->elems) {
-    warn "handling elem : $elem->{name} - matching against $keys[0]\n";
+#    warn "handling elem : $elem->{name} - matching against $keys[0]\n";
     if ($elem->{name} eq $keys[0]) {
       $a = $elem;
       $b = shift(@keys);
-      warn " found match : $elem->{name} / key : $b \n";
+#      warn " found match : $elem->{name} / key : $b \n";
       last;
     }
   }
 
-  warn "still have keys : ", join (', ',@keys), "\n";
+#  warn "still have keys : ", join (', ',@keys), "\n";
 
   my $elem = $a;
   while ($b = shift(@keys) ) {
-    warn "fetching with subkey $b\n";
+#    warn "fetching with subkey $b\n";
     $elem = $self->find_elem($elem,$b,@keys);
   }
 
-  warn "returning element :\n", Dumper($elem), "\n";
+#  warn "returning element :\n", Dumper($elem), "\n";
 
   return $elem;
 }
@@ -243,24 +246,24 @@ sub find_elem {
   my ($self,$parent,$key,@keys) = @_;
   my ($a,$b);
   warn "have key : $key \n";
-  warn "have keys : ", join (', ',@keys), "\n";
-  warn "parent : ", Dumper( $parent ), "\n";
+#  warn "have keys : ", join (', ',@keys), "\n";
+#  warn "parent : ", Dumper( $parent ), "\n";
   foreach my $elem ( @{$parent->{value}}) {
     next unless ref $elem;
-    warn "handling elem : $elem->{name} - matching against $key\n";
+#    warn "handling elem : $elem->{name} - matching against $key\n";
     if ($elem->{name} eq $key) {
       $a = $elem;
       $b = $key;
-      warn " found match : $elem->{name} / key : $b \n";
+#      warn " found match : $elem->{name} / key : $b \n";
       last;
     }
   }
 
-  warn "still have keys : ", join (', ',@keys), "\n";
+#  warn "still have keys : ", join (', ',@keys), "\n";
 
   my $elem = $a;
   while ($b = shift(@keys) ) {
-    warn "fetching sub key $b\n";
+#    warn "fetching sub key $b\n";
     $elem = $self->find_elem($elem,$b,@keys);
   }
   return $elem;
@@ -270,33 +273,46 @@ sub find_elem {
 
 sub get_as_data {
   my ($self,$elem) = @_;
+  warn "-- sub : get_as_data called with $elem->{name}\n"; 
   my @values;
   foreach my $value ( @{$elem->{value}} ) {
+    warn "-- -- value : $value ";
     if (ref $value) {
+      warn " ..is ref\n";
       push(@values,$self->get_as_data($value))
     } else {
+      warn " ..is scalar\n";
       push(@values,$value);
     }
   }
 
-  my $data;
+  my @data = ();
+
+  warn "\n##################\n values : \n ";
+  warn Dumper(@values);
+  warn "\n##################\n ";
 
   if (ref $values[0]) {
-    $data = \SOAP::Data->value( @values );
+    $data[0] = \SOAP::Data->value( @values );
   } else {
-    $data = "$values[0]";
+    @data = @values;
   }
 
   if ($elem->{header}) {
-    $data = SOAP::Header->name($elem->{name} => $data)->attr($elem->{attr});
+    $data[0] = SOAP::Header->name($elem->{name} => $data[0])->attr($elem->{attr});
   } else {
-    $data = SOAP::Data->name($elem->{name} => $data)->attr($elem->{attr});
+    if ($elem->{isMethod}) {
+      @data = ( SOAP::Data->name($elem->{name} )->attr($elem->{attr}) => SOAP::Data->value( @values ) );
+    } else {
+      $data[0] = SOAP::Data->name($elem->{name} => $data[0])->attr($elem->{attr});
+    }
   }
 
-  return $data;
+  return @data;
 }
 
 
-
+#############################################################################
+#############################################################################
 
 1;
