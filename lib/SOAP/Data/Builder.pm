@@ -78,7 +78,7 @@ use SOAP::Lite ( +trace => 'all', maptype => {} );
 use Data::Dumper;
 use strict;
 
-our $VERSION = "0.5";
+our $VERSION = "0.6";
 
 =head1 METHODS
 
@@ -130,7 +130,7 @@ sub serialise {
   my $data =  SOAP::Data->name('SOAP:ENV' =>
 			       \SOAP::Data->value( $self->to_soap_data )
 			      );
-  my $serialized = SOAP::Serializer->autotype($self->autotype)->readable($self->readable);->serialize( $data );
+  my $serialized = SOAP::Serializer->autotype($self->autotype)->readable($self->readable)->serialize( $data );
 }
 
 =head2 autotype()
