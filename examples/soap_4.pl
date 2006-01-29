@@ -19,7 +19,7 @@ $soap_data_builder->add_elem(name=>'fourth',
     value=>"something",
     parent=>$soap_data_builder->get_elem('first/second/third'));
 
-my $data =  SOAP::Data->name('SOAP:ENV' => \SOAP::Data->value(
+my $data =  SOAP::Data->name('soap:env' => \SOAP::Data->value(
 $soap_data_builder->to_soap_data ));
 
 my $serialized_xml = SOAP::Serializer->autotype(0)->serialize( $data );

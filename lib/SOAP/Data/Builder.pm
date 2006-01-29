@@ -2,8 +2,7 @@ package SOAP::Data::Builder;
 
 use SOAP::Data::Builder::Element;
 
-# Copyright (c) 2003 Surrey Technologies, Ltd ( http://www.surreytech.co.uk )
-# Copyright (c) 2004 Aaron Trevena
+# Copyright (c) 2004,2005 Aaron Trevena
 
 # This Module provides a quick and easy way to build complex SOAP data
 # and header structures for use with SOAP::Lite.
@@ -82,7 +81,7 @@ use SOAP::Lite ( maptype => {} );
 use Data::Dumper;
 use strict;
 
-our $VERSION = "0.8";
+our $VERSION = "0.9";
 
 =head1 METHODS
 
@@ -324,8 +323,7 @@ Aaron Trevena, E<lt>teejay@droogs.orgE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2003 Surrey Technlogies, Ltd
-Copyright (C) 2004 by Aaron Trevena
+Copyright (C) 2004,2005 by Aaron Trevena
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself,

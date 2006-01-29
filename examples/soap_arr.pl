@@ -5,8 +5,6 @@ use SOAP::Lite;
 use SOAP::Data::Builder;
 use Data::Dumper;
 
-my $soap_data_builder = SOAP::Data::Builder->new();
-
 my $products = [
 		{productOffering => 'XPD-2333', action => 'add', setting => [
 									   {settingName=>'Speed',settingValue=>'256'},
@@ -34,7 +32,7 @@ foreach my $product (@{$products}) {
     }
 }
 
-my $data = SOAP::Data->name('SOAP:ENV' => \SOAP::Data->value($builder->to_soap_data ));
+my $data = SOAP::Data->name('soap:env' => \SOAP::Data->value($builder->to_soap_data ));
 
 my $serialized_xml = SOAP::Serializer->autotype(0)->serialize( $data );
 

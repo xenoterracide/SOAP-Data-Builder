@@ -4,7 +4,7 @@ use ExtUtils::MakeMaker;
 WriteMakefile(
     NAME              => 'SOAP::Data::Builder',
     VERSION_FROM      => 'lib/SOAP/Data/Builder.pm', # finds $VERSION
-    PREREQ_PM         => {}, # e.g., Module::Name => 1.1
+    PREREQ_PM         => { SOAP::Lite => 0.65 }, # e.g., Module::Name => 1.1
     ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
       (AUTHOR         => 'aaron trevena <teejay@droogs.org>') : ()),
 );
