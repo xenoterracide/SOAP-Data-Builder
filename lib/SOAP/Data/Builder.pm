@@ -78,6 +78,8 @@ use SOAP::Data::Builder::Element;
 
 use SOAP::Lite ( maptype => {} );
 
+use Carp;
+
 use Data::Dumper;
 use strict;
 
@@ -254,6 +256,9 @@ sub get_elem {
 
 sub find_elem {
     my ($self,$parent,$key,@keys) = @_;
+
+    croak 'parent not defined' unless $parent;
+	
     my ($a,$b);
     foreach my $elem ( $parent->get_children()) {
 	next unless ref $elem;
